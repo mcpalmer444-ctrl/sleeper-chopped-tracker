@@ -10,5 +10,5 @@ app.get("/api/data",async(_q,res)=>{try{
  res.json({league,users,rosters,weekly,fetchedAt:new Date().toISOString()})
 }catch(e){res.status(502).json({error:e.message})}});
 app.use(express.static(path.join(__dirname,"public")));
-app.get("*",(_q,res)=>res.sendFile(path.join(__dirname,"public/index.html")));
+app.use((_q,res)=>res.sendFile(path.join(__dirname,"public/index.html")));
 app.listen(PORT,()=>console.log(`Chopped Tracker on ${PORT}`));
