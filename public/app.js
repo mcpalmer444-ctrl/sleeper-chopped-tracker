@@ -58,4 +58,4 @@ function render(d){
 }
 async function load(){try{let r=await fetch('/api/data',{cache:'no-store'});if(!r.ok)throw Error(`API ${r.status}`);render(await r.json())}catch(e){$("live").textContent='OFFLINE';$("footerStatus").textContent=e.message}}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.tabbody').forEach(x=>x.classList.add('hidden'));$(`${b.dataset.tab}Tab`).classList.remove('hidden')});
-$("refresh").onclick=load;load();setInterval(load,15000);
+$("refresh").onclick=load;load();setInterval(load,30000);
