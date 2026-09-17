@@ -1,9 +1,11 @@
 const $=x=>document.getElementById(x),fmt=n=>(+n||0).toFixed(2),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function rounds(){let a=[];for(let w=2;w<=18;w+=2)a.push([w,w+1]);return a.filter(x=>x[1]<=18)}
 function matchup(weekly,id,w){return (weekly[w]||[]).find(x=>String(x.roster_id)===String(id))}
-function score(weekly,id,w){let r=matchup(weekly,id,w);return +(r?.custom_points??r?.points??0)}
+function rawScore(weekly,id,w){let r=matchup(weekly,id,w);return +(r?.custom_points??r?.points??0)}
+function penaltyForPlayer(playerPoints){return playerPoints>4?1.25:0}
+function score(weekly,id,w,penalized=false){let r=matchup(weekly,id,w);if(!r)return 0;let base=rawScore(weekly,id,w);if(!penalized)return base;const pp=playerPoints(r),starters=new Set((r.starters||[]).map(String));let penalty=0;for(const pid of starters){const pts=+(pp[pid]??0);penalty+=penaltyForPlayer(pts)}return base-penalty}
 function playerPoints(m){return m?.players_points||{}}
-function weekPlayerRows(m,players){if(!m)return [];const pp=playerPoints(m);const starters=new Set((m.starters||[]).map(String));const ids=[...new Set([...(m.players||[]).map(String),...Object.keys(pp).map(String)])];return ids.map(id=>({id,meta:players?.[id]||{},points:+(pp[id]??0),contributor:starters.has(id)})).sort((a,b)=>(b.contributor-a.contributor)||(b.points-a.points)||(a.meta.full_name||"").localeCompare(b.meta.full_name||""))}
+function weekPlayerRows(m,players,penalized=false){if(!m)return [];const pp=playerPoints(m);const starters=new Set((m.starters||[]).map(String));const ids=[...new Set([...(m.players||[]).map(String),...Object.keys(pp).map(String)])];return ids.map(id=>{const raw=+(pp[id]??0);return {id,meta:players?.[id]||{},points:penalized&&starters.has(id)?raw-penaltyForPlayer(raw):raw,contributor:starters.has(id)}}).sort((a,b)=>(b.contributor-a.contributor)||(b.points-a.points)||(a.meta.full_name||"").localeCompare(b.meta.full_name||""))}
 function state(d){
   let us=new Map((d.users||[]).map(u=>[String(u.user_id),u])),ts=new Map();
   for(let r of d.rosters||[]){let u=us.get(String(r.owner_id));ts.set(String(r.roster_id),{id:String(r.roster_id),name:u?.metadata?.team_name||u?.display_name||`Roster ${r.roster_id}`,avatar:u?.avatar?`https://sleepercdn.com/avatars/thumbs/${u.avatar}`:null})}
@@ -14,11 +16,11 @@ function state(d){
     const hasScores=data.length&&data.some(x=>x.points!=null||x.custom_points!=null);
     const weekFinished=sameSeason ? nflWeek>b : hasScores && data.length>0;
     if(!weekFinished||!data.length) break;
-    let ss=[...active].map(id=>({id,total:score(d.weekly,id,a)+score(d.weekly,id,b)})).sort((x,y)=>x.total-y.total);
+    let ss=[...active].map(id=>({id,total:score(d.weekly,id,a,ts.get(id)?.name==='taypalm93')+score(d.weekly,id,b,ts.get(id)?.name==='taypalm93')})).sort((x,y)=>x.total-y.total);
     if(!ss.length)break;let l=ss[0];active.delete(l.id);done.push({n:i+1,w:[a,b],loser:l});
   }
   let cur=rounds()[Math.min(done.length,rounds().length-1)]||[2,3];
-  let rows=[...active].map(id=>({id,t:ts.get(id),a:score(d.weekly,id,cur[0]),b:score(d.weekly,id,cur[1])})).sort((x,y)=>x.a+x.b-y.a-y.b);
+  let rows=[...active].map(id=>({id,t:ts.get(id),a:score(d.weekly,id,cur[0],ts.get(id)?.name==='taypalm93'),b:score(d.weekly,id,cur[1],ts.get(id)?.name==='taypalm93')})).sort((x,y)=>x.a+x.b-y.a-y.b);
   return{ts,active,done,cur,rows};
 }
 function renderBattle(s,d){
@@ -31,7 +33,7 @@ function renderBattle(s,d){
   const cards=[first,second].map((r,i)=>{
     const [a,b]=s.cur,total=r.a+r.b;
     const pct=Math.max(3,Math.min(100,(total/(second.a+second.b||1))*100));
-    const rowsA=weekPlayerRows(matchup(d.weekly,r.id,a),d.players),rowsB=weekPlayerRows(matchup(d.weekly,r.id,b),d.players);
+    const penalized=r.t.name==='taypalm93';const rowsA=weekPlayerRows(matchup(d.weekly,r.id,a),d.players,penalized),rowsB=weekPlayerRows(matchup(d.weekly,r.id,b),d.players,penalized);
     const contributors=new Map();
     for(const p of rowsA) if(p.contributor) contributors.set(p.id,{...p,a:p.points,b:0});
     for(const p of rowsB) if(p.contributor) contributors.set(p.id,{...(contributors.get(p.id)||p),a:contributors.get(p.id)?.a||0,b:p.points});
@@ -41,7 +43,7 @@ function renderBattle(s,d){
   $("battleGrid").innerHTML=cards;
 }
 function playerDetailHtml(r,d,a,b){
-  const wa=weekPlayerRows(matchup(d.weekly,r.id,a),d.players),wb=weekPlayerRows(matchup(d.weekly,r.id,b),d.players);
+  const penalized=r.t.name==='taypalm93';const wa=weekPlayerRows(matchup(d.weekly,r.id,a),d.players,penalized),wb=weekPlayerRows(matchup(d.weekly,r.id,b),d.players,penalized);
   const ids=[...new Set([...wa.map(x=>x.id),...wb.map(x=>x.id)])];
   const ma=new Map(wa.map(x=>[x.id,x])),mb=new Map(wb.map(x=>[x.id,x]));
   return `<tr class="playerDetail"><td></td><td colspan="5"><div class="playerPanel"><div class="playerPanelHead"><b>Best-ball player breakdown</b><span>Contributing players are the players Sleeper selected for the weekly best-ball lineup.</span></div><div class="playerGrid"><div class="playerWeek"><div class="mini">WEEK ${a}</div>${ids.map(id=>{let p=ma.get(id);if(!p)return '';return `<div class="playerRow ${p.contributor?'contributor':''}"><span><b>${esc(p.meta.full_name||id)}</b><em>${esc(p.meta.position||'—')} · ${esc(p.meta.team||'FA')}</em></span><strong>${fmt(p.points)}</strong></div>`}).join('')}</div><div class="playerWeek"><div class="mini">WEEK ${b}</div>${ids.map(id=>{let p=mb.get(id);if(!p)return '';return `<div class="playerRow ${p.contributor?'contributor':''}"><span><b>${esc(p.meta.full_name||id)}</b><em>${esc(p.meta.position||'—')} · ${esc(p.meta.team||'FA')}</em></span><strong>${fmt(p.points)}</strong></div>`}).join('')}</div></div></div></td></tr>`;
