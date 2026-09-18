@@ -330,6 +330,7 @@ function projectedCutOdds(s,d){
   if(!s.rows?.length||!d.projections)return new Map();
 
   const weeks=s.cur;
+  console.log("PROJECTION WEEKS:", weeks);
   const teams=s.rows.map(r=>{
   const projected=projectedTeamDistribution(r,d,weeks);
 
