@@ -397,6 +397,32 @@ function projectedCutOdds(s,d){
       }else if(Math.abs(total-lowest)<=0.0001){
         losers.push(team.id);
       }
+          }
+
+    for(const id of losers){
+      counts.set(
+        id,
+        (counts.get(id)||0)+(1/losers.length)
+      );
+    }
+  }
+
+  const odds=new Map();
+
+  for(const team of teams){
+    const probability=
+      (counts.get(team.id)||0)/SIMULATIONS;
+
+    odds.set(team.id,{
+      probability,
+      percent:probability*100,
+      projected:team.projected.mean,
+      current:team.a+team.b
+    });
+  }
+
+  return odds;
+}
     }
 
     for(const id of losers){
