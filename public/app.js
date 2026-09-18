@@ -1,26 +1,67 @@
 const $=x=>document.getElementById(x),fmt=n=>(+n||0).toFixed(2),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function rounds(){let a=[];for(let w=2;w<=18;w+=2)a.push([w,w+1]);return a.filter(x=>x[1]<=18)}
 function matchup(weekly,id,w){return (weekly[w]||[]).find(x=>String(x.roster_id)===String(id))}
-function rawScore(weekly,id,w){let r=matchup(weekly,id,w);return +(r?.custom_points??r?.points??0)}
-function penaltyForPlayer(playerPoints){return playerPoints>4?1.25:0}
-function score(weekly,id,w,penalized=false){let r=matchup(weekly,id,w);if(!r)return 0;let base=rawScore(weekly,id,w);if(!penalized)return base;const pp=playerPoints(r),starters=new Set((r.starters||[]).map(String));let penalty=0;for(const pid of starters){const pts=+(pp[pid]??0);penalty+=penaltyForPlayer(pts)}return base-penalty}
-function playerPoints(m){return m?.players_points||{}}
-function weekPlayerRows(m,players,penalized=false){if(!m)return [];const pp=playerPoints(m);const starters=new Set((m.starters||[]).map(String));const ids=[...new Set([...(m.players||[]).map(String),...Object.keys(pp).map(String)])];return ids.map(id=>{const raw=+(pp[id]??0);return {id,meta:players?.[id]||{},points:penalized&&starters.has(id)?raw-penaltyForPlayer(raw):raw,contributor:starters.has(id)}}).sort((a,b)=>(b.contributor-a.contributor)||(b.points-a.points)||(a.meta.full_name||"").localeCompare(b.meta.full_name||""))}
+function rawPlayerPoints(m,id){return +(m?.players_points?.[id]??0)}
+function livePlayerScore(teamName,p){
+  const raw=+p.points||0;
+  if(String(teamName).toLowerCase()==="taypalm93" && raw>4) return raw-1.25;
+  return raw;
+}
+function weekPlayerRows(m,players,teamName){
+  if(!m)return [];
+  const pp=m?.players_points||{};
+  const starters=new Set((m.starters||[]).map(String));
+  const ids=[...new Set([...(m.players||[]).map(String),...Object.keys(pp).map(String)])];
+  return ids.map(id=>{
+    const meta=players?.[id]||{};
+    const raw=+(pp[id]??0);
+    return {id,meta,rawPoints:raw,points:livePlayerScore(teamName,{points:raw}),contributor:false};
+  }).sort((a,b)=>(b.points-a.points)||(a.meta.full_name||"").localeCompare(b.meta.full_name||""));
+}
+function bestBallWeek(m,players,teamName){
+  const rows=weekPlayerRows(m,players,teamName);
+  const byPos={QB:[],RB:[],WR:[],TE:[]};
+  for(const p of rows){
+    const pos=String(p.meta?.position||"").toUpperCase();
+    if(byPos[pos]) byPos[pos].push(p);
+  }
+  const chosen=[];
+  for(const pos of ["QB","RB","WR","TE"]){
+    const p=byPos[pos]?.sort((a,b)=>(b.points-a.points)||(b.rawPoints-a.rawPoints)||(a.meta.full_name||"").localeCompare(b.meta.full_name||""))[0];
+    if(p){p.contributor=true;p.bestBallPosition=pos;chosen.push(p);}
+  }
+  return {rows,contributors:chosen,total:chosen.reduce((sum,p)=>sum+p.points,0)};
+}
+function score(weekly,id,w,players,teamName){
+  return bestBallWeek(matchup(weekly,id,w),players,teamName).total;
+}
 function state(d){
   let us=new Map((d.users||[]).map(u=>[String(u.user_id),u])),ts=new Map();
-  for(let r of d.rosters||[]){let u=us.get(String(r.owner_id));ts.set(String(r.roster_id),{id:String(r.roster_id),name:u?.metadata?.team_name||u?.display_name||`Roster ${r.roster_id}`,avatar:u?.avatar?`https://sleepercdn.com/avatars/thumbs/${u.avatar}`:null})}
+  for(let r of d.rosters||[]){
+    let u=us.get(String(r.owner_id));
+    ts.set(String(r.roster_id),{
+      id:String(r.roster_id),
+      name:u?.metadata?.team_name||u?.display_name||`Roster ${r.roster_id}`,
+      avatar:u?.avatar?`https://sleepercdn.com/avatars/thumbs/${u.avatar}`:null
+    })
+  }
   let active=new Set(ts.keys()),done=[];
   const nflWeek=+(d.nflState?.week||0), sameSeason=String(d.nflState?.season||"")===String(d.league?.season||"");
   for(let i=0;i<rounds().length;i++){
     let [a,b]=rounds()[i],data=d.weekly?.[b]||[];
-    const hasScores=data.length&&data.some(x=>x.points!=null||x.custom_points!=null);
+    const hasScores=data.length&&data.some(x=>x.points!=null||x.custom_points!=null||Object.keys(x.players_points||{}).length);
     const weekFinished=sameSeason ? nflWeek>b : hasScores && data.length>0;
     if(!weekFinished||!data.length) break;
-    let ss=[...active].map(id=>({id,total:score(d.weekly,id,a,ts.get(id)?.name==='taypalm93')+score(d.weekly,id,b,ts.get(id)?.name==='taypalm93')})).sort((x,y)=>x.total-y.total);
-    if(!ss.length)break;let l=ss[0];active.delete(l.id);done.push({n:i+1,w:[a,b],loser:l});
+    let ss=[...active].map(id=>({id,total:score(d.weekly,id,a,d.players,ts.get(id)?.name)+score(d.weekly,id,b,d.players,ts.get(id)?.name)})).sort((x,y)=>x.total-y.total);
+    if(!ss.length)break;
+    let l=ss[0];active.delete(l.id);done.push({n:i+1,w:[a,b],loser:l});
   }
   let cur=rounds()[Math.min(done.length,rounds().length-1)]||[2,3];
-  let rows=[...active].map(id=>({id,t:ts.get(id),a:score(d.weekly,id,cur[0],ts.get(id)?.name==='taypalm93'),b:score(d.weekly,id,cur[1],ts.get(id)?.name==='taypalm93')})).sort((x,y)=>x.a+x.b-y.a-y.b);
+  let rows=[...active].map(id=>({
+    id,t:ts.get(id),
+    a:score(d.weekly,id,cur[0],d.players,ts.get(id)?.name),
+    b:score(d.weekly,id,cur[1],d.players,ts.get(id)?.name)
+  })).sort((x,y)=>x.a+x.b-y.a-y.b);
   return{ts,active,done,cur,rows};
 }
 function renderBattle(s,d){
@@ -33,20 +74,22 @@ function renderBattle(s,d){
   const cards=[first,second].map((r,i)=>{
     const [a,b]=s.cur,total=r.a+r.b;
     const pct=Math.max(3,Math.min(100,(total/(second.a+second.b||1))*100));
-    const penalized=r.t.name==='taypalm93';const rowsA=weekPlayerRows(matchup(d.weekly,r.id,a),d.players,penalized),rowsB=weekPlayerRows(matchup(d.weekly,r.id,b),d.players,penalized);
+    const ba=bestBallWeek(matchup(d.weekly,r.id,a),d.players,r.t.name),bb=bestBallWeek(matchup(d.weekly,r.id,b),d.players,r.t.name);
     const contributors=new Map();
-    for(const p of rowsA) if(p.contributor) contributors.set(p.id,{...p,a:p.points,b:0});
-    for(const p of rowsB) if(p.contributor) contributors.set(p.id,{...(contributors.get(p.id)||p),a:contributors.get(p.id)?.a||0,b:p.points});
+    for(const p of ba.contributors) contributors.set(p.id,{...p,a:p.points,b:0});
+    for(const p of bb.contributors) contributors.set(p.id,{...(contributors.get(p.id)||p),a:contributors.get(p.id)?.a||0,b:p.points});
     const contrib=[...contributors.values()].sort((x,y)=>(y.a+y.b)-(x.a+x.b));
     return `<div class="battleCard ${i===0?'dangerBattle':''}"><div class="battleTeam"><div>${r.t.avatar?`<img class="avatar" src="${esc(r.t.avatar)}">`:`<div class="avatar"></div>`}<div><b>${esc(r.t.name)}</b><span>${i===0?'ON THE LINE':'NEXT SAFE TEAM'}</span></div></div><strong>${fmt(total)}</strong></div><div class="bar"><i style="width:${pct}%"></i></div><div class="battleMeta"><span>Wk ${a}: ${fmt(r.a)}</span><span>Wk ${b}: ${fmt(r.b)}</span></div><div class="contrib"><div class="mini">BEST-BALL CONTRIBUTORS</div>${contrib.length?contrib.slice(0,8).map(p=>`<div class="contribRow"><span>${esc(p.meta.full_name||p.id)} <em>${esc(p.meta.position||'')}</em></span><b>${fmt(p.a+p.b)}</b></div>`).join(''):`<div class="muted">No player-level points returned yet.</div>`}</div></div>`;
   }).join('');
   $("battleGrid").innerHTML=cards;
 }
 function playerDetailHtml(r,d,a,b){
-  const penalized=r.t.name==='taypalm93';const wa=weekPlayerRows(matchup(d.weekly,r.id,a),d.players,penalized),wb=weekPlayerRows(matchup(d.weekly,r.id,b),d.players,penalized);
+  const ba=bestBallWeek(matchup(d.weekly,r.id,a),d.players,r.t.name),bb=bestBallWeek(matchup(d.weekly,r.id,b),d.players,r.t.name);
+  const wa=ba.rows,wb=bb.rows;
   const ids=[...new Set([...wa.map(x=>x.id),...wb.map(x=>x.id)])];
   const ma=new Map(wa.map(x=>[x.id,x])),mb=new Map(wb.map(x=>[x.id,x]));
-  return `<tr class="playerDetail"><td></td><td colspan="5"><div class="playerPanel"><div class="playerPanelHead"><b>Best-ball player breakdown</b><span>Contributing players are the players Sleeper selected for the weekly best-ball lineup.</span></div><div class="playerGrid"><div class="playerWeek"><div class="mini">WEEK ${a}</div>${ids.map(id=>{let p=ma.get(id);if(!p)return '';return `<div class="playerRow ${p.contributor?'contributor':''}"><span><b>${esc(p.meta.full_name||id)}</b><em>${esc(p.meta.position||'—')} · ${esc(p.meta.team||'FA')}</em></span><strong>${fmt(p.points)}</strong></div>`}).join('')}</div><div class="playerWeek"><div class="mini">WEEK ${b}</div>${ids.map(id=>{let p=mb.get(id);if(!p)return '';return `<div class="playerRow ${p.contributor?'contributor':''}"><span><b>${esc(p.meta.full_name||id)}</b><em>${esc(p.meta.position||'—')} · ${esc(p.meta.team||'FA')}</em></span><strong>${fmt(p.points)}</strong></div>`}).join('')}</div></div></div></td></tr>`;
+  const rowHtml=(p)=>p?`<div class="playerRow ${p.contributor?'contributor':''}"><span><b>${esc(p.meta.full_name||p.id)}</b><em>${esc(p.meta.position||'—')} · ${esc(p.meta.team||'FA')}</em></span><strong>${fmt(p.points)}</strong></div>`:'';
+  return `<tr class="playerDetail"><td></td><td colspan="5"><div class="playerPanel"><div class="playerPanelHead"><b>Best-ball player breakdown</b><span>Contributing players update live as the highest scorer at each position changes.</span></div><div class="playerGrid"><div class="playerWeek"><div class="mini">WEEK ${a}</div>${ids.map(id=>rowHtml(ma.get(id))).join('')}</div><div class="playerWeek"><div class="mini">WEEK ${b}</div>${ids.map(id=>rowHtml(mb.get(id))).join('')}</div></div></div></td></tr>`;
 }
 function render(d){
   let s=state(d),[a,b]=s.cur,first=s.rows[0],now=new Date(d.fetchedAt).toLocaleTimeString([],{hour:'numeric',minute:'2-digit',second:'2-digit'});
@@ -58,4 +101,4 @@ function render(d){
 }
 async function load(){try{let r=await fetch('/api/data',{cache:'no-store'});if(!r.ok)throw Error(`API ${r.status}`);render(await r.json())}catch(e){$("live").textContent='OFFLINE';$("footerStatus").textContent=e.message}}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.tabbody').forEach(x=>x.classList.add('hidden'));$(`${b.dataset.tab}Tab`).classList.remove('hidden')});
-$("refresh").onclick=load;load();setInterval(load,45000);
+$("refresh").onclick=load;load();setInterval(load,30000);
