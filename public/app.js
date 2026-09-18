@@ -295,6 +295,7 @@ function teamNameForPenalty(p,model){
 
 function projectedTeamDistribution(team,d,weeks){
   const model=projectedTeamModel(team,d,weeks);
+  console.log("BEST BALL MODEL:", team.t.name, model);
 
   /*
     Attach the actual league team name so the taypalm93 rule is
