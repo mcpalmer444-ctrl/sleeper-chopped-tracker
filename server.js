@@ -205,8 +205,10 @@ for (const [week, projectionData] of Object.entries(
       pts_half_ppr: stats.pts_half_ppr ?? null,
       pts_std: stats.pts_std ?? null
     };
+      }
   }
-}
+
+    res.json({
       league,
       users,
       rosters,
