@@ -421,9 +421,6 @@ function projectedCutOdds(s,d){
     });
   }
 
-  return odds;
-}
-
     for(const id of losers){
       counts.set(
         id,
