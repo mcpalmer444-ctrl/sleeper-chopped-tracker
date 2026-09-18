@@ -331,28 +331,16 @@ function projectedCutOdds(s,d){
   if(!s.rows?.length||!d.projections)return new Map();
 
   const weeks=s.cur;
-  console.log("PROJECTION WEEKS:", weeks);
+
   const teams=s.rows.map(r=>{
-  const projected=projectedTeamDistribution(r,d,weeks);
+    const projected=projectedTeamDistribution(r,d,weeks);
 
-  console.log(
-    "PROJECTED TEAM:",
-    r.t.name,
-    "CURRENT:",
-    +(r.a+r.b).toFixed(2),
-    "PROJECTED:",
-    +projected.mean.toFixed(2)
-  );
+    return {
+      ...r,
+      projected
+    };
+  });
 
-  return {
-    ...r,
-    projected
-  };
-});
-
-  /*
-    If there are no usable projections yet, don't display fake odds.
-  */
   const hasProjection=teams.some(t=>
     t.projected.model.some(w=>
       Object.values(w.candidates).some(arr=>
@@ -397,29 +385,7 @@ function projectedCutOdds(s,d){
       }else if(Math.abs(total-lowest)<=0.0001){
         losers.push(team.id);
       }
-          }
-
-    for(const id of losers){
-      counts.set(
-        id,
-        (counts.get(id)||0)+(1/losers.length)
-      );
     }
-  }
-
-  const odds=new Map();
-
-  for(const team of teams){
-    const probability=
-      (counts.get(team.id)||0)/SIMULATIONS;
-
-    odds.set(team.id,{
-      probability,
-      percent:probability*100,
-      projected:team.projected.mean,
-      current:team.a+team.b
-    });
-  }
 
     for(const id of losers){
       counts.set(
@@ -432,20 +398,19 @@ function projectedCutOdds(s,d){
   const result=new Map();
 
   for(const team of teams){
-    const odds=(
-      (counts.get(team.id)||0)/
-      SIMULATIONS
-    )*100;
+    const probability=
+      (counts.get(team.id)||0)/SIMULATIONS;
 
     result.set(team.id,{
-      odds,
-      projected:team.projected.mean
+      probability,
+      percent:probability*100,
+      projected:team.projected.mean,
+      current:team.a+team.b
     });
   }
 
   return result;
 }
-
 /* ---------------- EXISTING SITE ---------------- */
 
 function state(d){
