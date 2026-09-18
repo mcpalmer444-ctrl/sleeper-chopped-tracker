@@ -48,15 +48,25 @@ async function players() {
 
 async function projections(season, week) {
   if (!season || !week || week < 1 || week > 18) {
-    return {};
+    return [];
   }
 
   try {
-    return await sleeperCom(
-  `/projections/nfl/${season}/${week}?season_type=regular&position=QB&position=RB&position=WR&position=TE`
-);
+    const positions = ["QB", "RB", "WR", "TE"];
+
+    const results = await Promise.all(
+      positions.map((position) =>
+        sleeperCom(
+          `/projections/nfl/${season}/${week}?season_type=regular&position=${position}`
+        )
+      )
+    );
+
+    return results.flatMap((result) =>
+      Array.isArray(result) ? result : []
+    );
   } catch {
-    return {};
+    return [];
   }
 }
 
