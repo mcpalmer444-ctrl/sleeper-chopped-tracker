@@ -186,25 +186,27 @@ app.get("/api/data", async (_q, res) => {
     // this league, keeping the response much smaller.
     const relevantProjections = {};
 
-    for (const [week, projectionData] of Object.entries(
-      projectionResults
-    )) {
-      relevantProjections[week] = {};
+for (const [week, projectionData] of Object.entries(
+  projectionResults
+)) {
+  relevantProjections[week] = {};
 
-      for (const id of ids) {
-        const p = projectionData?.[id];
+  for (const p of Array.isArray(projectionData)
+    ? projectionData
+    : []) {
+    const id = String(p?.player_id || "");
 
-        if (!p) continue;
+    if (!ids.has(id)) continue;
 
-        relevantProjections[week][id] = {
-          pts_ppr: p.pts_ppr ?? null,
-          pts_half_ppr: p.pts_half_ppr ?? null,
-          pts_std: p.pts_std ?? null
-        };
-      }
-    }
+    const stats = p?.stats || {};
 
-    res.json({
+    relevantProjections[week][id] = {
+      pts_ppr: stats.pts_ppr ?? null,
+      pts_half_ppr: stats.pts_half_ppr ?? null,
+      pts_std: stats.pts_std ?? null
+    };
+  }
+}
       league,
       users,
       rosters,
