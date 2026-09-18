@@ -208,6 +208,7 @@ for (const [week, projectionData] of Object.entries(
       }
   }
 
+    console.log("SCORING SETTINGS:", league?.scoring_settings);
     res.json({
       league,
       users,
