@@ -121,22 +121,46 @@ function projectionPlayer(m,id,week,d,teamName){
   const projectionRaw=proj?.[key];
 
   const nflWeek=+(d.nflState?.week||0);
-
-  /*
-    Completed weeks use actual scoring only.
-    The current week and future weeks use actual points already
-    earned plus the remaining portion of the weekly projection.
-  */
   const completed=week<nflWeek;
 
   if(completed){
     return {
       id,
       mean:penaltyRaw(teamName,actualRaw),
+      rawMean:actualRaw,
+      rawSd:0,
       sd:0,
+      actualRaw,
       meta:d.players?.[id]||{}
     };
   }
+
+  if(projectionRaw==null){
+    return {
+      id,
+      mean:penaltyRaw(teamName,actualRaw),
+      rawMean:actualRaw,
+      rawSd:0,
+      sd:0,
+      actualRaw,
+      meta:d.players?.[id]||{}
+    };
+  }
+
+  const remaining=Math.max(0,+projectionRaw-actualRaw);
+  const rawMean=actualRaw+remaining;
+  const sd=Math.max(1.5,remaining*0.35);
+
+  return {
+    id,
+    mean:penaltyRaw(teamName,rawMean),
+    rawMean,
+    rawSd:sd,
+    sd,
+    actualRaw,
+    meta:d.players?.[id]||{}
+  };
+}
 
   /*
     If Sleeper has no projection for this player, keep the actual
