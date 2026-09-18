@@ -651,7 +651,7 @@ function renderBattle(s,d,odds){
           ${teamOdds
             ?`<div class="battleMeta">
                 <span>PROJECTED FINISH: ${fmt(teamOdds.projected)}</span>
-                <span>CUT ODDS: ${Math.round(teamOdds.percent)}%</span>
+                <span>PROJECTED: ${teamOdds.projected.toFixed(2)} · CUT ODDS: ${Math.round(teamOdds.percent)}%</span>
               </div>`
             :""}
 
