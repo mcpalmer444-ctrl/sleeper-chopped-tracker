@@ -315,10 +315,23 @@ function projectedCutOdds(s,d){
   if(!s.rows?.length||!d.projections)return new Map();
 
   const weeks=s.cur;
-  const teams=s.rows.map(r=>({
+  const teams=s.rows.map(r=>{
+  const projected=projectedTeamDistribution(r,d,weeks);
+
+  console.log(
+    "PROJECTED TEAM:",
+    r.t.name,
+    "CURRENT:",
+    +(r.a+r.b).toFixed(2),
+    "PROJECTED:",
+    +projected.mean.toFixed(2)
+  );
+
+  return {
     ...r,
-    projected:projectedTeamDistribution(r,d,weeks)
-  }));
+    projected
+  };
+});
 
   /*
     If there are no usable projections yet, don't display fake odds.
