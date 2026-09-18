@@ -651,7 +651,7 @@ function renderBattle(s,d,odds){
           ${teamOdds
             ?`<div class="battleMeta">
                 <span>PROJECTED FINISH: ${fmt(teamOdds.projected)}</span>
-                <span>CUT ODDS: ${Math.round(teamOdds.odds)}%</span>
+                <span>CUT ODDS: ${Math.round(teamOdds.percent)}%</span>
               </div>`
             :""}
 
@@ -816,7 +816,7 @@ function render(d){
 
       if(o){
         badgeText+=
-          ` · ${Math.round(o.odds)}% CUT`;
+          ` · ${Math.round(o.percent)}% CUT`;
       }
 
       return `
