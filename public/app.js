@@ -566,7 +566,7 @@ function renderBattle(s,d,odds){
   $("battleSub").textContent=
     `${first.t.name} is on the line. The next team is ${fmt(gap)} points ahead.`+
     (firstOdds
-      ?` Projected cut odds: ${Math.round(firstOdds.odds)}%.`
+      ?` Projected cut odds: ${Math.round(firstOdds.percent)}%.`
       :"");
 
   $("battleGap").textContent=
