@@ -123,9 +123,9 @@ function projectionPlayer(m,id,week,d,teamName){
   const nflWeek=+(d.nflState?.week||0);
 
   /*
-    A week before the current NFL week is treated as completed.
+    Completed weeks use actual scoring only.
     The current week and future weeks use actual points already
-    earned plus the remaining projection.
+    earned plus the remaining portion of the weekly projection.
   */
   const completed=week<nflWeek;
 
@@ -138,6 +138,10 @@ function projectionPlayer(m,id,week,d,teamName){
     };
   }
 
+  /*
+    If Sleeper has no projection for this player, keep the actual
+    score rather than inventing future points.
+  */
   if(projectionRaw==null){
     return {
       id,
@@ -147,16 +151,27 @@ function projectionPlayer(m,id,week,d,teamName){
     };
   }
 
-  const remaining=Math.max(0,+projectionRaw-actualRaw);
+  /*
+    Sleeper's projection is the player's expected TOTAL for the week.
+    Remove points already scored so we only project the points that
+    are still available.
+  */
+  const remaining=Math.max(
+    0,
+    +projectionRaw-actualRaw
+  );
+
+  const rawMean=actualRaw+remaining;
 
   /*
-    Sleeper projections are point estimates, so we add a reasonable
-    uncertainty band around the remaining projected points.
-    This is what turns the projected finish into an estimated
-    probability rather than a single deterministic ranking.
+    Use a moderate uncertainty band for the remaining points.
+    This allows players to beat or miss their projection without
+    making the simulated outcomes unrealistically wide.
   */
-  const rawMean=actualRaw+remaining;
-  const sd=Math.max(1.5,remaining*0.55);
+  const sd=Math.max(
+    1.5,
+    remaining*0.35
+  );
 
   return {
     id,
