@@ -816,7 +816,7 @@ function render(d){
 
       if(o){
         badgeText+=
-          ` · ${Math.round(o.percent)}% CUT`;
+          ` · ${o.projected.toFixed(2)} PROJ · ${Math.round(o.percent)}% CUT`;
       }
 
       return `
