@@ -379,7 +379,7 @@ function projectedCutOdds(s,d){
     teams.map(t=>[t.id,0])
   );
 
-  const SIMULATIONS=2500;
+  const SIMULATIONS=500;
 
   for(let sim=0;sim<SIMULATIONS;sim++){
     let lowest=Infinity;
