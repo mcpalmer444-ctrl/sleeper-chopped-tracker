@@ -162,51 +162,6 @@ function projectionPlayer(m,id,week,d,teamName){
   };
 }
 
-  /*
-    If Sleeper has no projection for this player, keep the actual
-    score rather than inventing future points.
-  */
-  if(projectionRaw==null){
-    return {
-      id,
-      mean:penaltyRaw(teamName,actualRaw),
-      sd:0,
-      meta:d.players?.[id]||{}
-    };
-  }
-
-  /*
-    Sleeper's projection is the player's expected TOTAL for the week.
-    Remove points already scored so we only project the points that
-    are still available.
-  */
-  const remaining=Math.max(
-    0,
-    +projectionRaw-actualRaw
-  );
-
-  const rawMean=actualRaw+remaining;
-
-  /*
-    Use a moderate uncertainty band for the remaining points.
-    This allows players to beat or miss their projection without
-    making the simulated outcomes unrealistically wide.
-  */
-  const sd=Math.max(
-    1.5,
-    remaining*0.35
-  );
-
-  return {
-    id,
-    mean:penaltyRaw(teamName,rawMean),
-    rawMean,
-    rawSd:sd,
-    sd,
-    meta:d.players?.[id]||{}
-  };
-}
-
 function projectedWeekCandidates(m,id,week,d,teamName){
   const players=d.players||{};
   const ids=[
