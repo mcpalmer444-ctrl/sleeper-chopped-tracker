@@ -149,7 +149,7 @@ function projectionPlayer(m,id,week,d,teamName){
 
   const remaining=Math.max(0,+projectionRaw-actualRaw);
   const rawMean=actualRaw+remaining;
-  const sd=Math.max(1.5,remaining*0.35);
+  const sd=remaining>0?Math.max(1.5,remaining*0.35):0;
 
   return {
     id,
